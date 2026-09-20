@@ -57,33 +57,41 @@ export const usePrismaAuthState = async (sessionId: string): Promise<{ state: Au
             keys: {
                 get: async (type, ids) => {
                     const data: { [key: string]: SignalDataTypeMap[typeof type] } = {};
-                    await Promise.all(ids.map(async id => {
-                        let value = await readData(type, id);
-                        if (type === 'app-state-sync-key' && value) {
-                            value = BufferJSON.reviver(null, value);
-                        }
-                        if (value) {
-                            data[id] = value;
-                        }
-                    }));
+                    const BATCH_SIZE = 8;
+                    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+                        const batch = ids.slice(i, i + BATCH_SIZE);
+                        await Promise.all(batch.map(async id => {
+                            let value = await readData(type, id);
+                            if (type === 'app-state-sync-key' && value) {
+                                value = BufferJSON.reviver(null, value);
+                            }
+                            if (value) {
+                                data[id] = value;
+                            }
+                        }));
+                    }
                     return data;
                 },
                 set: async (data) => {
-                     const tasks: Promise<void>[] = [];
+                    const tasks: (() => Promise<void>)[] = [];
                     for (const category in data) {
                         const categoryData = data[category as keyof typeof data];
                         if (!categoryData) continue;
                         
                         for (const id in categoryData) {
                             const value = categoryData[id];
-                             if (value) {
-                                tasks.push(writeData(category, id, value));
+                            if (value) {
+                                tasks.push(() => writeData(category, id, value));
                             } else {
-                                tasks.push(removeData(category, id));
+                                tasks.push(() => removeData(category, id));
                             }
                         }
                     }
-                    await Promise.all(tasks);
+                    const BATCH_SIZE = 8;
+                    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+                        const batch = tasks.slice(i, i + BATCH_SIZE);
+                        await Promise.all(batch.map(fn => fn()));
+                    }
                 }
             }
         },
