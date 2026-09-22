@@ -20,6 +20,11 @@ if (!process.env.AUTH_SECRET) {
   process.exit(1);
 }
 
+if (!process.env.DATABASE_URL) {
+  logger.error("Server", "DATABASE_URL is not set. Please add DATABASE_URL in your Railway dashboard (Variables -> Raw Editor).");
+  process.exit(1);
+}
+
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
