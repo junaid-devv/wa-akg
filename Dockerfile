@@ -10,7 +10,7 @@ RUN npm ci --legacy-peer-deps && npm cache clean --force
 
 # Source & build
 COPY . .
-RUN npx prisma generate && npm run build
+RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" npx prisma generate && npm run build
 
 # Strip devDeps from node_modules after build
 # tsx needed at runtime, kept explicitly
@@ -35,4 +35,4 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push && (if [ -n \"$ADMIN_EMAIL\"] && [ -n \"$ADMIN_PASSWORD\"]; then node scripts/setup-admin.js \"$ADMIN_EMAIL\" \"$ADMIN_PASSWORD\"; fi) && node node_modules/tsx/dist/cli.mjs src/server/index.ts"]
+CMD ["sh", "-c", "(npx prisma db push --skip-generate || true) && (if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_PASSWORD\" ]; then node scripts/setup-admin.js \"$ADMIN_EMAIL\" \"$ADMIN_PASSWORD\" || true; fi) && node node_modules/tsx/dist/cli.mjs src/server/index.ts"]
