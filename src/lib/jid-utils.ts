@@ -50,6 +50,20 @@ export async function resolveToPhoneJid(
 
     // 2. Try DB lookup
     try {
+        // Priority 2A: Find a contact record where lid equals this JID and jid is a real phone JID (@s.whatsapp.net)
+        const mappedPhoneContact = await prisma.contact.findFirst({
+            where: {
+                sessionId: dbSessionId,
+                lid: jid,
+                jid: { endsWith: "@s.whatsapp.net" }
+            },
+            select: { jid: true }
+        });
+        if (mappedPhoneContact?.jid && !isLidJid(mappedPhoneContact.jid)) {
+            return mappedPhoneContact.jid;
+        }
+
+        // Priority 2B: Fallback to existing contact lookup
         const contact = await prisma.contact.findFirst({
             where: {
                 sessionId: dbSessionId,
@@ -142,7 +156,14 @@ export async function batchResolveToPhoneJid(
             select: { jid: true, lid: true, remoteJidAlt: true }
         });
 
-        // Build lookup map
+        // Build lookup map: first pass for direct LID->Phone mappings
+        for (const c of contacts) {
+            if (c.lid && isLidJid(c.lid) && c.jid && !isLidJid(c.jid)) {
+                result.set(c.lid, c.jid);
+            }
+        }
+
+        // Second pass: remoteJidAlt fallback
         for (const c of contacts) {
             const phoneJid = (c.remoteJidAlt && !isLidJid(c.remoteJidAlt))
                 ? c.remoteJidAlt
@@ -150,11 +171,11 @@ export async function batchResolveToPhoneJid(
 
             if (phoneJid) {
                 // Map by jid (if it's a LID)
-                if (isLidJid(c.jid)) {
+                if (isLidJid(c.jid) && !result.has(c.jid)) {
                     result.set(c.jid, phoneJid);
                 }
                 // Map by lid field
-                if (c.lid && isLidJid(c.lid)) {
+                if (c.lid && isLidJid(c.lid) && !result.has(c.lid)) {
                     result.set(c.lid, phoneJid);
                 }
             }

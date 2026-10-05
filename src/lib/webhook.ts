@@ -562,10 +562,12 @@ export async function onMessageReceived(sessionId: string, message: any, existin
             id: message.key?.id,
             remoteJid: normalizedFrom,
             fromMe: fromMe,
-            participant: participantDetail
+            participant: participantDetail,
+            remoteJidAlt: remoteJidAlt || undefined
         },
         pushName: message.pushName,
         messageTimestamp: message.messageTimestamp,
+        remoteJidAlt: remoteJidAlt || undefined,
 
         // Simplified Fields — always @s.whatsapp.net format
         from: normalizedFrom,       // Sender — who sent it (#O in DM), consistent: "from" = who sent it

@@ -492,8 +492,9 @@ async function processAndSaveMessage(
         }
     }
 
+    let newMessage: any = null;
     try {
-        const newMessage = await prisma.message.create({
+        newMessage = await prisma.message.create({
             data: {
                 sessionId: dbSessionId,
                 remoteJid: normalizeJid(normalizedRemoteJid),
@@ -533,12 +534,14 @@ async function processAndSaveMessage(
                     notify: !fromMe ? pushName : undefined,
                     name: !fromMe ? pushName : undefined,
                     // @ts-ignore
-                    remoteJidAlt: remoteJidAlt || undefined
+                    remoteJidAlt: remoteJidAlt || undefined,
+                    lid: isLidJid(remoteJid) ? remoteJid : undefined
                 },
                 update: !fromMe ? {
                     notify: pushName,
                     // @ts-ignore
-                    remoteJidAlt: remoteJidAlt || undefined
+                    remoteJidAlt: remoteJidAlt || undefined,
+                    lid: isLidJid(remoteJid) ? remoteJid : undefined
                 } : {}
             });
 
@@ -555,20 +558,19 @@ async function processAndSaveMessage(
                 }
             }
         }
-
-        // Trigger webhook for new messages only (not history sync)
-        if (triggerWebhook) {
-            if (fromMe) {
-                onMessageSent(sessionId, msg, fileUrl).catch(e => logger.error("Webhook", "Error in onMessageSent", e));
-            } else {
-                onMessageReceived(sessionId, msg, fileUrl).catch(e => logger.error("Webhook", "Error in onMessageReceived", e));
-            }
-        }
-
-        return newMessage;
     } catch (e: any) {
         logger.error("Store", "Error saving message query", e);
-        throw e;
     }
+
+    // Trigger webhook for new messages only (not history sync) - ALWAYS runs
+    if (triggerWebhook) {
+        if (fromMe) {
+            onMessageSent(sessionId, msg, fileUrl).catch(e => logger.error("Webhook", "Error in onMessageSent", e));
+        } else {
+            onMessageReceived(sessionId, msg, fileUrl).catch(e => logger.error("Webhook", "Error in onMessageReceived", e));
+        }
+    }
+
+    return newMessage;
 }
 // Placeholder - verified that I need to find the logic first
